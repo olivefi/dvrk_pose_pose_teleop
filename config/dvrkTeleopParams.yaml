@@ -1,0 +1,12 @@
+publish_rate: 200             # Hz, at which everything is republished from node
+base_frame_id: "world"        # Frame used as base for the teleop goal poses
+
+# Topics
+dvrk_left_pose_topic: "MTML/measured_cp"    # Where to sub for DVRK pose left
+dvrk_right_pose_topic: "MTMR/measured_cp"   # Where to sub for DVRK pose right
+dvrk_clutch_topic: "/DVRK/clutch"           # Where to sub for DVRK clutch state
+teleop_wrench_topic: "/DVRK/teleop_pose"    # Where to sub to the leader's wrench
+
+# Timeouts
+pose_expiration: 0.01     # s, if a dvrk pose is this stale we do not publish
+wrench_expiration: 0.1    # s, if a wrench is this stale we do not send

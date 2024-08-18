@@ -8,6 +8,9 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 set(PACKAGE_DEPENDENCIES
     any_node
     tf
+    geometry_msgs
+    std_msgs
+    sensor_msgs
 )
 
 find_package(catkin
