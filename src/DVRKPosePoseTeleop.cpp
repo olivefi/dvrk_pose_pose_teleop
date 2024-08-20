@@ -25,6 +25,9 @@ bool DVRKPosePoseTeleop::init() {
   dvrkWrenchPub_ = nh_->advertise<geometry_msgs::WrenchStamped>("/DVRK/wrench", 1);
   teleopClutchPub_ = nh_->advertise<sensor_msgs::Joy>("/quest/joystick", 1);
 
+  // Initialize coord transform
+  dvrkCoordToNormalCoord_ << 0, 0, 1, 1, 0, 0, 0, -1, 0;
+
   any_worker::WorkerOptions workerOptions;
   workerOptions.name_ = ros::this_node::getName() + std::string{"_broadcast"};
   workerOptions.callback_ = boost::bind(&DVRKPosePoseTeleop::update, this, _1);
