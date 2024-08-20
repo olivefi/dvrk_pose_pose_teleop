@@ -33,7 +33,8 @@ protected:
   std::string dvrkLeftPoseTopic_;
   std::string dvrkRightPoseTopic_;
   std::string dvrkClutchTopic_;
-  std::string teleopWrenchTopic_;
+  std::string teleopLeftWrenchTopic_;
+  std::string teleopRightWrenchTopic_;
   double publishRate_;
   double poseExpiration_;
   double wrenchExpiration_;
@@ -54,15 +55,20 @@ protected:
   std_msgs::Bool dvrkClutch_;
 
   // Values we receive from teleop follower device
-  ros::Subscriber teleopWrenchSub_;
+  ros::Subscriber teleopLeftWrenchSub_;
+  ros::Subscriber teleopRightWrenchSub_;
 
-  void teleopWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg);
+  void teleopLeftWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg);
+  void teleopRightWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg);
 
-  geometry_msgs::WrenchStamped teleopWrench_;
-  ros::Time lastWrenchTime_;
+  geometry_msgs::WrenchStamped teleopLeftWrench_;
+  geometry_msgs::WrenchStamped teleopRightWrench_;
+  ros::Time lastLeftWrenchTime_;
+  ros::Time lastRightWrenchTime_;
 
   // Stuff we (re-)publish
-  ros::Publisher dvrkWrenchPub_;
+  ros::Publisher dvrkLeftWrenchPub_;
+  ros::Publisher dvrkRightWrenchPub_;
   ros::Publisher teleopClutchPub_;
   ros::Publisher leftPoseDesPub_;
   ros::Publisher rightPoseDesPub_;

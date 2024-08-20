@@ -15,8 +15,10 @@ bool DVRKPosePoseTeleop::init() {
       param<std::string>("dvrk_right_pose_topic", "/MTMR/measured_cp");
   dvrkClutchTopic_ = param<std::string>(
       "dvrk_clutch_topic", "/mobile_manipulator_state_machine/clutch");
-  teleopWrenchTopic_ =
-      param<std::string>("teleop_wrench_topic", "/teleop/wrench");
+  teleopLeftWrenchTopic_ =
+      param<std::string>("teleop_left_wrench_topic", "/teleop/left/wrench");
+  teleopRightWrenchTopic_ =
+      param<std::string>("teleop_right_wrench_topic", "/teleop/right/wrench");
   poseExpiration_ = param<double>("pose_expiration", 0.01);
   wrenchExpiration_ = param<double>("wrench_expiration", 0.1);
 
@@ -27,12 +29,16 @@ bool DVRKPosePoseTeleop::init() {
       dvrkRightPoseTopic_, 1, &DVRKPosePoseTeleop::dvrkPoseRightCallback, this);
   dvrkClutchSub_ = nh_->subscribe(
       dvrkClutchTopic_, 1, &DVRKPosePoseTeleop::dvrkClutchCallback, this);
-  teleopWrenchSub_ = nh_->subscribe(
-      teleopWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopWrenchCallback, this);
+  teleopLeftWrenchSub_ = nh_->subscribe(
+      teleopLeftWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopLeftWrenchCallback, this);
+  teleopRightWrenchSub_ = nh_->subscribe(
+      teleopRightWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopRightWrenchCallback, this);
 
-  // Initialize publishers
-  dvrkWrenchPub_ =
+  // Initialize publishersCall
+  dvrkLeftWrenchPub_ =
       nh_->advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 1);
+  dvrkRightWrenchPub_ =
+      nh_->advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 1);
   teleopClutchPub_ = nh_->advertise<sensor_msgs::Joy>("/quest/joystick", 1);
   leftPoseDesPub_ = nh_->advertise<geometry_msgs::TransformStamped>(
       "/teleop/left/leader_pose", 1);
@@ -40,8 +46,8 @@ bool DVRKPosePoseTeleop::init() {
       "/teleop/right/leader_pose", 1);
 
   // Initialize coord transform
-  dvrkCoordToNormalCoord_ << 0, 1, 0, 1, 0, 0, 0, 0, 1;
-  normalCoordToDvrkCoord_ << 0, 1, 0, 1, 0, 0, 0, 0, 1;
+  dvrkCoordToNormalCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
+  normalCoordToDvrkCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
 
   any_worker::WorkerOptions workerOptions;
   workerOptions.name_ = ros::this_node::getName() + std::string{"_broadcast"};
@@ -99,8 +105,8 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
   teleopClutch.buttons[JoystickButtons::RightClutch] = dvrkClutch_.data;
   teleopClutchPub_.publish(teleopClutch);
 
-  if ((ros::Time::now() - lastWrenchTime_).toSec() < wrenchExpiration_) {
-    geometry_msgs::WrenchStamped dvrkWrench = teleopWrench_;
+  if ((ros::Time::now() - lastLeftWrenchTime_).toSec() < wrenchExpiration_) {
+    geometry_msgs::WrenchStamped dvrkWrench = teleopLeftWrench_;
     dvrkWrench.header.stamp = ros::Time::now();
     Eigen::Vector3d force;
     force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
@@ -112,7 +118,23 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
     dvrkWrench.wrench.torque.x = 0.0;
     dvrkWrench.wrench.torque.y = 0.0;
     dvrkWrench.wrench.torque.z = 0.0;
-    dvrkWrenchPub_.publish(dvrkWrench);
+    dvrkLeftWrenchPub_.publish(dvrkWrench);
+  }
+
+  if ((ros::Time::now() - lastRightWrenchTime_).toSec() < wrenchExpiration_) {
+    geometry_msgs::WrenchStamped dvrkWrench = teleopRightWrench_;
+    dvrkWrench.header.stamp = ros::Time::now();
+    Eigen::Vector3d force;
+    force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
+        dvrkWrench.wrench.force.z;
+    force = 0.2 * normalCoordToDvrkCoord_ * force;
+    dvrkWrench.wrench.force.x = force[0];
+    dvrkWrench.wrench.force.y = force[1];
+    dvrkWrench.wrench.force.z = force[2];
+    dvrkWrench.wrench.torque.x = 0.0;
+    dvrkWrench.wrench.torque.y = 0.0;
+    dvrkWrench.wrench.torque.z = 0.0;
+    dvrkRightWrenchPub_.publish(dvrkWrench);
   }
   return true;
 }
@@ -132,10 +154,16 @@ void DVRKPosePoseTeleop::dvrkClutchCallback(
   dvrkClutch_ = *msg;
 }
 
-void DVRKPosePoseTeleop::teleopWrenchCallback(
+void DVRKPosePoseTeleop::teleopLeftWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
-  teleopWrench_ = *msg;
-  lastWrenchTime_ = ros::Time::now();
+  teleopLeftWrench_ = *msg;
+  lastLeftWrenchTime_ = ros::Time::now();
+}
+
+void DVRKPosePoseTeleop::teleopRightWrenchCallback(
+    const geometry_msgs::WrenchStamped::ConstPtr &msg) {
+  teleopRightWrench_ = *msg;
+  lastRightWrenchTime_ = ros::Time::now();
 }
 
 } /* namespace dvrk_pose_pose_teleop */
