@@ -1,29 +1,29 @@
 #pragma once
 
-#include <ros/ros.h>
 #include <Eigen/Core>
+#include <ros/ros.h>
 
 #include <any_node/any_node.hpp>
-#include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/WrenchStamped.h>
-#include <std_msgs/Bool.h>
 #include <sensor_msgs/Joy.h>
+#include <std_msgs/Bool.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 namespace dvrk_pose_pose_teleop {
 
 enum JoystickButtons { LeftClutch = 10, RightClutch = 11 };
 
 class DVRKPosePoseTeleop : public any_node::Node {
- public:
+public:
   DVRKPosePoseTeleop(any_node::Node::NodeHandlePtr nh);
   ~DVRKPosePoseTeleop() override = default;
 
   bool init() override;
   void cleanup() override;
-  bool update(const any_worker::WorkerEvent& event);
+  bool update(const any_worker::WorkerEvent &event);
 
- protected:
+protected:
   tf2_ros::TransformBroadcaster tfBroadcaster_;
   Eigen::Matrix3d dvrkCoordToNormalCoord_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d normalCoordToDvrkCoord_ = Eigen::Matrix3d::Identity();
@@ -43,9 +43,11 @@ class DVRKPosePoseTeleop : public any_node::Node {
   ros::Subscriber dvrkPoseRightSub_;
   ros::Subscriber dvrkClutchSub_;
 
-  void dvrkPoseLeftCallback(const geometry_msgs::TransformStamped::ConstPtr& msg);
-  void dvrkPoseRightCallback(const geometry_msgs::TransformStamped::ConstPtr& msg);
-  void dvrkClutchCallback(const std_msgs::Bool::ConstPtr& msg);
+  void
+  dvrkPoseLeftCallback(const geometry_msgs::TransformStamped::ConstPtr &msg);
+  void
+  dvrkPoseRightCallback(const geometry_msgs::TransformStamped::ConstPtr &msg);
+  void dvrkClutchCallback(const std_msgs::Bool::ConstPtr &msg);
 
   geometry_msgs::TransformStamped dvrkPoseLeft_;
   geometry_msgs::TransformStamped dvrkPoseRight_;
@@ -54,7 +56,7 @@ class DVRKPosePoseTeleop : public any_node::Node {
   // Values we receive from teleop follower device
   ros::Subscriber teleopWrenchSub_;
 
-  void teleopWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr& msg);
+  void teleopWrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg);
 
   geometry_msgs::WrenchStamped teleopWrench_;
   ros::Time lastWrenchTime_;
@@ -62,5 +64,7 @@ class DVRKPosePoseTeleop : public any_node::Node {
   // Stuff we (re-)publish
   ros::Publisher dvrkWrenchPub_;
   ros::Publisher teleopClutchPub_;
+  ros::Publisher leftPoseDesPub_;
+  ros::Publisher rightPoseDesPub_;
 };
 } /* namespace dvrk_pose_pose_teleop */
