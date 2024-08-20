@@ -27,6 +27,7 @@ bool DVRKPosePoseTeleop::init() {
 
   // Initialize coord transform
   dvrkCoordToNormalCoord_ << 0, 0, 1, 1, 0, 0, 0, -1, 0;
+  normalCoordToDvrkCoord_ << 0, 1, 0, 0, 0, -1, 1, 0, 0;
 
   any_worker::WorkerOptions workerOptions;
   workerOptions.name_ = ros::this_node::getName() + std::string{"_broadcast"};
@@ -85,7 +86,7 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent& event) {
     dvrkWrench.header.stamp = ros::Time::now();
     Eigen::Vector3d force;
     force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y, dvrkWrench.wrench.force.z;
-    force = dvrkCoordToNormalCoord_.inverse() * force;
+    force = normalCoordToDvrkCoord_ * force;
     dvrkWrench.wrench.force.x = force[0];
     dvrkWrench.wrench.force.y = force[1];
     dvrkWrench.wrench.force.z = force[2];

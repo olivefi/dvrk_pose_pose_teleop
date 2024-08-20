@@ -26,6 +26,7 @@ class DVRKPosePoseTeleop : public any_node::Node {
  protected:
   tf2_ros::TransformBroadcaster tfBroadcaster_;
   Eigen::Matrix3d dvrkCoordToNormalCoord_ = Eigen::Matrix3d::Identity();
+  Eigen::Matrix3d normalCoordToDvrkCoord_ = Eigen::Matrix3d::Identity();
 
   // Externally settable variables
   std::string baseFrameId_;
