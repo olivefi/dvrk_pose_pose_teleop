@@ -79,6 +79,14 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
     teleopLeft.transform.translation.x = leftTrans[0];
     teleopLeft.transform.translation.y = leftTrans[1];
     teleopLeft.transform.translation.z = leftTrans[2];
+    // yes its a quaternion but because its a coord system transform this works
+    Eigen::Vector3d leftRot;
+    leftRot << teleopLeft.transform.rotation.x, teleopLeft.transform.rotation.y,
+        teleopLeft.transform.rotation.z;
+    leftRot = dvrkCoordToNormalCoord_ * leftRot;
+    teleopLeft.transform.rotation.x = leftRot[0];
+    teleopLeft.transform.rotation.y = leftRot[1];
+    teleopLeft.transform.rotation.z = leftRot[2];
     leftPoseDesPub_.publish(teleopLeft);
     // tfBroadcaster_.sendTransform(teleopLeft);
   }
@@ -94,6 +102,13 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
     teleopRight.transform.translation.x = rightTrans[0];
     teleopRight.transform.translation.y = rightTrans[1];
     teleopRight.transform.translation.z = rightTrans[2];
+    Eigen::Vector3d rightRot;
+    rightRot << teleopRight.transform.rotation.x,
+        teleopRight.transform.rotation.y, teleopRight.transform.rotation.z;
+    rightRot = dvrkCoordToNormalCoord_ * rightRot;
+    teleopRight.transform.rotation.x = rightRot[0];
+    teleopRight.transform.rotation.y = rightRot[1];
+    teleopRight.transform.rotation.z = rightRot[2];
     rightPoseDesPub_.publish(teleopRight);
     // tfBroadcaster_.sendTransform(teleopRight);
   }
