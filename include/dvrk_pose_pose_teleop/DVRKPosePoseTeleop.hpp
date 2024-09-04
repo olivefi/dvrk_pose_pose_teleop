@@ -69,7 +69,8 @@ protected:
   // Stuff we (re-)publish
   ros::Publisher dvrkLeftWrenchPub_;
   ros::Publisher dvrkRightWrenchPub_;
-  ros::Publisher teleopClutchPub_;
+  ros::Publisher leftTeleopClutchPub_;
+  ros::Publisher rightTeleopClutchPub_;
   ros::Publisher leftPoseDesPub_;
   ros::Publisher rightPoseDesPub_;
 };

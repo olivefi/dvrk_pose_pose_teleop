@@ -39,7 +39,8 @@ bool DVRKPosePoseTeleop::init() {
       nh_->advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 1);
   dvrkRightWrenchPub_ =
       nh_->advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 1);
-  teleopClutchPub_ = nh_->advertise<sensor_msgs::Joy>("/quest/joystick", 1);
+  leftTeleopClutchPub_ = nh_->advertise<std_msgs::Bool>("/teleop/left/leader_clutch", 1);
+  rightTeleopClutchPub_ = nh_->advertise<std_msgs::Bool>("/teleop/right/leader_clutch", 1);
   leftPoseDesPub_ = nh_->advertise<geometry_msgs::TransformStamped>(
       "/teleop/left/leader_pose", 1);
   rightPoseDesPub_ = nh_->advertise<geometry_msgs::TransformStamped>(
@@ -113,12 +114,10 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
     // tfBroadcaster_.sendTransform(teleopRight);
   }
 
-  sensor_msgs::Joy teleopClutch;
-  teleopClutch.header.stamp = ros::Time::now();
-  teleopClutch.buttons.resize(12);
-  teleopClutch.buttons[JoystickButtons::LeftClutch] = dvrkClutch_.data;
-  teleopClutch.buttons[JoystickButtons::RightClutch] = dvrkClutch_.data;
-  teleopClutchPub_.publish(teleopClutch);
+  std_msgs::Bool teleopClutch;
+  teleopClutch.data= dvrkClutch_.data;
+  leftTeleopClutchPub_.publish(teleopClutch);
+  rightTeleopClutchPub_.publish(teleopClutch);
 
   if ((ros::Time::now() - lastLeftWrenchTime_).toSec() < wrenchExpiration_) {
     geometry_msgs::WrenchStamped dvrkWrench = teleopLeftWrench_;
