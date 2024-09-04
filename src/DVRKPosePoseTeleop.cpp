@@ -9,32 +9,36 @@ bool DVRKPosePoseTeleop::init() {
   // Load parameters
   publishRate_ = param<double>("publish_rate", 200);
   baseFrameId_ = param<std::string>("base_frame_id", "base");
-  dvrkLeftPoseTopic_ =
-      param<std::string>("dvrk_left_pose_topic", "/MTML/measured_cp");
-  dvrkRightPoseTopic_ =
-      param<std::string>("dvrk_right_pose_topic", "/MTMR/measured_cp");
-  dvrkClutchTopic_ = param<std::string>(
-      "dvrk_clutch_topic", "/mobile_manipulator_state_machine/clutch");
   teleopLeftWrenchTopic_ =
       param<std::string>("teleop_left_wrench_topic", "/teleop/left/wrench");
   teleopRightWrenchTopic_ =
       param<std::string>("teleop_right_wrench_topic", "/teleop/right/wrench");
+  teleopLeftGripperTopic_ =
+      param<std::string>("teleop_gripper_left_topic", "/teleop/left/gripper");
+ teleopRightGripperTopic_ =
+      param<std::string>("teleop_gripper_right_topic", "/teleop/right/gripper");
   poseExpiration_ = param<double>("pose_expiration", 0.01);
   wrenchExpiration_ = param<double>("wrench_expiration", 0.1);
+  leftGripperLimits_ = param<std::vector<double>>("left_gripper_limits", {0., 1.0});
+  rightGripperLimits_ = param<std::vector<double>>("right_gripper_limits", {0., 1.0});
 
   // Initialize subscribers
   dvrkPoseLeftSub_ = nh_->subscribe(
-      dvrkLeftPoseTopic_, 1, &DVRKPosePoseTeleop::dvrkPoseLeftCallback, this);
+      "/MTML/measured_cp", 1, &DVRKPosePoseTeleop::dvrkPoseLeftCallback, this);
   dvrkPoseRightSub_ = nh_->subscribe(
-      dvrkRightPoseTopic_, 1, &DVRKPosePoseTeleop::dvrkPoseRightCallback, this);
+      "/MTMR/measured_cp", 1, &DVRKPosePoseTeleop::dvrkPoseRightCallback, this);
   dvrkClutchSub_ = nh_->subscribe(
-      dvrkClutchTopic_, 1, &DVRKPosePoseTeleop::dvrkClutchCallback, this);
+      "/mobile_manipulator_state_machine/clutch", 1, &DVRKPosePoseTeleop::dvrkClutchCallback, this);
+  dvrkGripperLeftSub_ = nh_->subscribe(
+      "/MTML/gripper/measured_js", 1, &DVRKPosePoseTeleop::dvrkGripperLeftCallback, this);
+  dvrkGripperRightSub_ = nh_->subscribe(
+      "/MTMR/gripper/measured_js", 1, &DVRKPosePoseTeleop::dvrkGripperRightCallback, this);
   teleopLeftWrenchSub_ = nh_->subscribe(
       teleopLeftWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopLeftWrenchCallback, this);
   teleopRightWrenchSub_ = nh_->subscribe(
       teleopRightWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopRightWrenchCallback, this);
 
-  // Initialize publishersCall
+  // Initialize publishers
   dvrkLeftWrenchPub_ =
       nh_->advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 1);
   dvrkRightWrenchPub_ =
@@ -45,6 +49,9 @@ bool DVRKPosePoseTeleop::init() {
       "/teleop/left/leader_pose", 1);
   rightPoseDesPub_ = nh_->advertise<geometry_msgs::TransformStamped>(
       "/teleop/right/leader_pose", 1);
+  leftGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopLeftGripperTopic_, 1);
+  rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
+  
 
   // Initialize coord transform
   dvrkCoordToNormalCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
@@ -150,6 +157,15 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
     dvrkWrench.wrench.torque.z = 0.0;
     dvrkRightWrenchPub_.publish(dvrkWrench);
   }
+
+  if (dvrkGripperLeft_.position.size() >= 1){
+    leftGripperPub_.publish(processGripperLimits(dvrkGripperLeft_, leftGripperLimits_));
+  }
+
+  if (dvrkGripperRight_.position.size() >= 1){
+    rightGripperPub_.publish(processGripperLimits(dvrkGripperRight_, rightGripperLimits_));
+  }
+
   return true;
 }
 
@@ -178,6 +194,21 @@ void DVRKPosePoseTeleop::teleopRightWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
   teleopRightWrench_ = *msg;
   lastRightWrenchTime_ = ros::Time::now();
+}
+
+void DVRKPosePoseTeleop::dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg) {
+  dvrkGripperLeft_ = *msg;
+}
+
+void DVRKPosePoseTeleop::dvrkGripperRightCallback(const sensor_msgs::JointState::ConstPtr &msg) {
+  dvrkGripperRight_ = *msg;
+}
+
+sensor_msgs::JointState DVRKPosePoseTeleop::processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits){
+  sensor_msgs::JointState newGripperState = gripperState;
+  newGripperState.position[0] = (newGripperState.position[0] - gripperLimits[0])/(gripperLimits[1] - gripperLimits[0]);
+  newGripperState.position[0] = std::clamp(newGripperState.position[0], 0.0, 1.0);
+  return newGripperState;
 }
 
 } /* namespace dvrk_pose_pose_teleop */
