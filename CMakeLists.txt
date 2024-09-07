@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.1)
-project(dvrk_pose_pose_teleop)
+project(dvrk_teleop_interface)
 
 # Set compiler flags
 set(CMAKE_CXX_STANDARD 17)
@@ -32,7 +32,7 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME}
-  src/DVRKPosePoseTeleop.cpp
+  src/DVRKTeleopInterface.cpp
 )
 
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
@@ -41,15 +41,15 @@ target_link_libraries(${PROJECT_NAME}
    ${catkin_LIBRARIES}
 )
 
-add_executable(dvrk_pose_pose_teleop_node
-  src/dvrk_pose_pose_teleop_node.cpp
+add_executable(dvrk_teleop_interface_node
+  src/dvrk_teleop_interface_node.cpp
 )
 
-add_dependencies(dvrk_pose_pose_teleop_node
+add_dependencies(dvrk_teleop_interface_node
   ${catkin_EXPORTED_TARGETS}
 )
 
-target_link_libraries(dvrk_pose_pose_teleop_node
+target_link_libraries(dvrk_teleop_interface_node
    ${PROJECT_NAME}
    ${catkin_LIBRARIES}
 )
@@ -59,7 +59,7 @@ target_link_libraries(dvrk_pose_pose_teleop_node
 ## Install ##
 #############
 
-install(TARGETS ${PROJECT_NAME} dvrk_pose_pose_teleop_node
+install(TARGETS ${PROJECT_NAME} dvrk_teleop_interface_node
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

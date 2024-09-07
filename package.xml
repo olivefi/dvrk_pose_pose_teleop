@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>dvrk_pose_pose_teleop</name>
+  <name>dvrk_teleop_interface</name>
   <version>1.0.0</version>
   <description>Node that interfaces between raw DVRK and a generic teleop interface</description>
   <maintainer email="olivefi@ethz.ch">Oliver Fischer</maintainer>

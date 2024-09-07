@@ -1,11 +1,11 @@
-#include "dvrk_pose_pose_teleop/DVRKPosePoseTeleop.hpp"
+#include "dvrk_teleop_interface/DVRKTeleopInterface.hpp"
 
-namespace dvrk_pose_pose_teleop {
+namespace dvrk_teleop_interface {
 
-DVRKPosePoseTeleop::DVRKPosePoseTeleop(any_node::Node::NodeHandlePtr nh)
+DVRKTeleopInterface::DVRKTeleopInterface(any_node::Node::NodeHandlePtr nh)
     : any_node::Node(nh) {}
 
-bool DVRKPosePoseTeleop::init() {
+bool DVRKTeleopInterface::init() {
   // Load parameters
   publishRate_ = param<double>("publish_rate", 200);
   baseFrameId_ = param<std::string>("base_frame_id", "base");
@@ -24,19 +24,19 @@ bool DVRKPosePoseTeleop::init() {
 
   // Initialize subscribers
   dvrkPoseLeftSub_ = nh_->subscribe(
-      "/MTML/measured_cp", 1, &DVRKPosePoseTeleop::dvrkPoseLeftCallback, this);
+      "/MTML/measured_cp", 1, &DVRKTeleopInterface::dvrkPoseLeftCallback, this);
   dvrkPoseRightSub_ = nh_->subscribe(
-      "/MTMR/measured_cp", 1, &DVRKPosePoseTeleop::dvrkPoseRightCallback, this);
+      "/MTMR/measured_cp", 1, &DVRKTeleopInterface::dvrkPoseRightCallback, this);
   dvrkClutchSub_ = nh_->subscribe(
-      "/mobile_manipulator_state_machine/clutch", 1, &DVRKPosePoseTeleop::dvrkClutchCallback, this);
+      "/mobile_manipulator_state_machine/clutch", 1, &DVRKTeleopInterface::dvrkClutchCallback, this);
   dvrkGripperLeftSub_ = nh_->subscribe(
-      "/MTML/gripper/measured_js", 1, &DVRKPosePoseTeleop::dvrkGripperLeftCallback, this);
+      "/MTML/gripper/measured_js", 1, &DVRKTeleopInterface::dvrkGripperLeftCallback, this);
   dvrkGripperRightSub_ = nh_->subscribe(
-      "/MTMR/gripper/measured_js", 1, &DVRKPosePoseTeleop::dvrkGripperRightCallback, this);
+      "/MTMR/gripper/measured_js", 1, &DVRKTeleopInterface::dvrkGripperRightCallback, this);
   teleopLeftWrenchSub_ = nh_->subscribe(
-      teleopLeftWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopLeftWrenchCallback, this);
+      teleopLeftWrenchTopic_, 1, &DVRKTeleopInterface::teleopLeftWrenchCallback, this);
   teleopRightWrenchSub_ = nh_->subscribe(
-      teleopRightWrenchTopic_, 1, &DVRKPosePoseTeleop::teleopRightWrenchCallback, this);
+      teleopRightWrenchTopic_, 1, &DVRKTeleopInterface::teleopRightWrenchCallback, this);
 
   // Initialize publishers
   dvrkLeftWrenchPub_ =
@@ -59,7 +59,7 @@ bool DVRKPosePoseTeleop::init() {
 
   any_worker::WorkerOptions workerOptions;
   workerOptions.name_ = ros::this_node::getName() + std::string{"_broadcast"};
-  workerOptions.callback_ = boost::bind(&DVRKPosePoseTeleop::update, this, _1);
+  workerOptions.callback_ = boost::bind(&DVRKTeleopInterface::update, this, _1);
   workerOptions.timeStep_ = 1.0 / publishRate_;
   workerOptions.defaultPriority_ = 0;
 
@@ -71,9 +71,9 @@ bool DVRKPosePoseTeleop::init() {
   return true;
 }
 
-void DVRKPosePoseTeleop::cleanup() {}
+void DVRKTeleopInterface::cleanup() {}
 
-bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
+bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   geometry_msgs::TransformStamped teleopLeft = dvrkPoseLeft_;
   geometry_msgs::TransformStamped teleopRight = dvrkPoseRight_;
 
@@ -169,46 +169,46 @@ bool DVRKPosePoseTeleop::update(const any_worker::WorkerEvent &event) {
   return true;
 }
 
-void DVRKPosePoseTeleop::dvrkPoseLeftCallback(
+void DVRKTeleopInterface::dvrkPoseLeftCallback(
     const geometry_msgs::TransformStamped::ConstPtr &msg) {
   dvrkPoseLeft_ = *msg;
 }
 
-void DVRKPosePoseTeleop::dvrkPoseRightCallback(
+void DVRKTeleopInterface::dvrkPoseRightCallback(
     const geometry_msgs::TransformStamped::ConstPtr &msg) {
   dvrkPoseRight_ = *msg;
 }
 
-void DVRKPosePoseTeleop::dvrkClutchCallback(
+void DVRKTeleopInterface::dvrkClutchCallback(
     const std_msgs::Bool::ConstPtr &msg) {
   dvrkClutch_ = *msg;
 }
 
-void DVRKPosePoseTeleop::teleopLeftWrenchCallback(
+void DVRKTeleopInterface::teleopLeftWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
   teleopLeftWrench_ = *msg;
   lastLeftWrenchTime_ = ros::Time::now();
 }
 
-void DVRKPosePoseTeleop::teleopRightWrenchCallback(
+void DVRKTeleopInterface::teleopRightWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
   teleopRightWrench_ = *msg;
   lastRightWrenchTime_ = ros::Time::now();
 }
 
-void DVRKPosePoseTeleop::dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg) {
+void DVRKTeleopInterface::dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg) {
   dvrkGripperLeft_ = *msg;
 }
 
-void DVRKPosePoseTeleop::dvrkGripperRightCallback(const sensor_msgs::JointState::ConstPtr &msg) {
+void DVRKTeleopInterface::dvrkGripperRightCallback(const sensor_msgs::JointState::ConstPtr &msg) {
   dvrkGripperRight_ = *msg;
 }
 
-sensor_msgs::JointState DVRKPosePoseTeleop::processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits){
+sensor_msgs::JointState DVRKTeleopInterface::processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits){
   sensor_msgs::JointState newGripperState = gripperState;
   newGripperState.position[0] = (newGripperState.position[0] - gripperLimits[0])/(gripperLimits[1] - gripperLimits[0]);
   newGripperState.position[0] = std::clamp(newGripperState.position[0], 0.0, 1.0);
   return newGripperState;
 }
 
-} /* namespace dvrk_pose_pose_teleop */
+} /* namespace dvrk_teleop_interface */

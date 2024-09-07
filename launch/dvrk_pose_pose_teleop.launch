@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-
-<launch>
-  <!-- Publish robot state (base) as TF -->
-  <node name="dvrk_pose_pose_teleop" pkg="dvrk_pose_pose_teleop" type="dvrk_pose_pose_teleop_node" output="screen" respawn="true">
-    <rosparam command="load" file="$(find dvrk_pose_pose_teleop)/config/dvrkTeleopParams.yaml" />
-  </node>
-
-</launch>

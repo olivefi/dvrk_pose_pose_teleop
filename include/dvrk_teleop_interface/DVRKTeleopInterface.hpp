@@ -13,14 +13,14 @@
 #include <std_msgs/Bool.h>
 #include <tf2_ros/transform_broadcaster.h>
 
-namespace dvrk_pose_pose_teleop {
+namespace dvrk_teleop_interface {
 
 enum JoystickButtons { LeftClutch = 10, RightClutch = 11 };
 
-class DVRKPosePoseTeleop : public any_node::Node {
+class DVRKTeleopInterface : public any_node::Node {
 public:
-  DVRKPosePoseTeleop(any_node::Node::NodeHandlePtr nh);
-  ~DVRKPosePoseTeleop() override = default;
+  DVRKTeleopInterface(any_node::Node::NodeHandlePtr nh);
+  ~DVRKTeleopInterface() override = default;
 
   bool init() override;
   void cleanup() override;
@@ -86,4 +86,4 @@ protected:
   ros::Publisher leftGripperPub_;
   ros::Publisher rightGripperPub_;
 };
-} /* namespace dvrk_pose_pose_teleop */
+} /* namespace dvrk_teleop_interface */
