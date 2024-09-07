@@ -21,6 +21,8 @@ bool DVRKTeleopInterface::init() {
   wrenchExpiration_ = param<double>("wrench_expiration", 0.1);
   leftGripperLimits_ = param<std::vector<double>>("left_gripper_limits", {0., 1.0});
   rightGripperLimits_ = param<std::vector<double>>("right_gripper_limits", {0., 1.0});
+  forceScaling_ = param<double>("force_scaling", 0.2);
+  maxForce_ = param<double>("max_force", 20.0);
 
   // Initialize subscribers
   dvrkPoseLeftSub_ = nh_->subscribe(
@@ -96,7 +98,6 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
     teleopLeft.transform.rotation.y = leftRot[1];
     teleopLeft.transform.rotation.z = leftRot[2];
     leftPoseDesPub_.publish(teleopLeft);
-    // tfBroadcaster_.sendTransform(teleopLeft);
   }
 
   if ((ros::Time::now() - teleopRight.header.stamp).toSec() < poseExpiration_) {
@@ -118,7 +119,6 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
     teleopRight.transform.rotation.y = rightRot[1];
     teleopRight.transform.rotation.z = rightRot[2];
     rightPoseDesPub_.publish(teleopRight);
-    // tfBroadcaster_.sendTransform(teleopRight);
   }
 
   std_msgs::Bool teleopClutch;
@@ -132,7 +132,19 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
     Eigen::Vector3d force;
     force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
         dvrkWrench.wrench.force.z;
-    force = 0.2 * normalCoordToDvrkCoord_ * force;
+    Eigen::Quaterniond quatLeft;
+    quatLeft.w() = dvrkPoseLeft_.transform.rotation.w;
+    quatLeft.x() = dvrkPoseLeft_.transform.rotation.x;
+    quatLeft.y() = dvrkPoseLeft_.transform.rotation.y;
+    quatLeft.z() = dvrkPoseLeft_.transform.rotation.z;
+    Eigen::Matrix3d frameCorrection = quatLeft.inverse().toRotationMatrix();
+
+    force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
+
+    if (force.norm() > maxForce_) {
+      force = maxForce_ * force / force.norm();
+    }
+
     dvrkWrench.wrench.force.x = force[0];
     dvrkWrench.wrench.force.y = force[1];
     dvrkWrench.wrench.force.z = force[2];
@@ -148,7 +160,19 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
     Eigen::Vector3d force;
     force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
         dvrkWrench.wrench.force.z;
-    force = 0.2 * normalCoordToDvrkCoord_ * force;
+    Eigen::Quaterniond quatRight;
+    quatRight.w() = dvrkPoseRight_.transform.rotation.w;
+    quatRight.x() = dvrkPoseRight_.transform.rotation.x;
+    quatRight.y() = dvrkPoseRight_.transform.rotation.y;
+    quatRight.z() = dvrkPoseRight_.transform.rotation.z;
+    Eigen::Matrix3d frameCorrection = quatRight.inverse().toRotationMatrix();
+
+    force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
+
+    if (force.norm() > maxForce_) {
+      force = maxForce_ * force / force.norm();
+    }
+
     dvrkWrench.wrench.force.x = force[0];
     dvrkWrench.wrench.force.y = force[1];
     dvrkWrench.wrench.force.z = force[2];

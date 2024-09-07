@@ -40,6 +40,8 @@ protected:
   double publishRate_;
   double poseExpiration_;
   double wrenchExpiration_;
+  double forceScaling_;
+  double maxForce_;
   std::vector<double> leftGripperLimits_;
   std::vector<double> rightGripperLimits_;
 
