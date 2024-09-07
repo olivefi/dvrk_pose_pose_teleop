@@ -27,6 +27,10 @@ public:
   bool update(const any_worker::WorkerEvent &event);
 
 protected:
+  void processTeleopWrench(const geometry_msgs::WrenchStamped &wrench, const geometry_msgs::TransformStamped &dvrk_pose,
+                     ros::Publisher &pub);
+  void processDVRKPose(const geometry_msgs::TransformStamped &dvrk_pose, ros::Publisher &pub);
+
   tf2_ros::TransformBroadcaster tfBroadcaster_;
   Eigen::Matrix3d dvrkCoordToNormalCoord_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d normalCoordToDvrkCoord_ = Eigen::Matrix3d::Identity();

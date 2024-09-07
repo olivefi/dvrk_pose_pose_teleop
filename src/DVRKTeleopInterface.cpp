@@ -76,49 +76,12 @@ bool DVRKTeleopInterface::init() {
 void DVRKTeleopInterface::cleanup() {}
 
 bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
-  geometry_msgs::TransformStamped teleopLeft = dvrkPoseLeft_;
-  geometry_msgs::TransformStamped teleopRight = dvrkPoseRight_;
-
-  if ((ros::Time::now() - teleopLeft.header.stamp).toSec() < poseExpiration_) {
-    teleopLeft.header.frame_id = baseFrameId_;
-    teleopLeft.child_frame_id = "hand_left";
-    Eigen::Vector3d leftTrans;
-    leftTrans << teleopLeft.transform.translation.x,
-        teleopLeft.transform.translation.y, teleopLeft.transform.translation.z;
-    leftTrans = dvrkCoordToNormalCoord_ * leftTrans;
-    teleopLeft.transform.translation.x = leftTrans[0];
-    teleopLeft.transform.translation.y = leftTrans[1];
-    teleopLeft.transform.translation.z = leftTrans[2];
-    // yes its a quaternion but because its a coord system transform this works
-    Eigen::Vector3d leftRot;
-    leftRot << teleopLeft.transform.rotation.x, teleopLeft.transform.rotation.y,
-        teleopLeft.transform.rotation.z;
-    leftRot = dvrkCoordToNormalCoord_ * leftRot;
-    teleopLeft.transform.rotation.x = leftRot[0];
-    teleopLeft.transform.rotation.y = leftRot[1];
-    teleopLeft.transform.rotation.z = leftRot[2];
-    leftPoseDesPub_.publish(teleopLeft);
+  if ((ros::Time::now() - dvrkPoseLeft_.header.stamp).toSec() < poseExpiration_) {
+    processDVRKPose(dvrkPoseLeft_, leftPoseDesPub_);
   }
 
-  if ((ros::Time::now() - teleopRight.header.stamp).toSec() < poseExpiration_) {
-    teleopRight.header.frame_id = baseFrameId_;
-    teleopRight.child_frame_id = "hand_right";
-    Eigen::Vector3d rightTrans;
-    rightTrans << teleopRight.transform.translation.x,
-        teleopRight.transform.translation.y,
-        teleopRight.transform.translation.z;
-    rightTrans = dvrkCoordToNormalCoord_ * rightTrans;
-    teleopRight.transform.translation.x = rightTrans[0];
-    teleopRight.transform.translation.y = rightTrans[1];
-    teleopRight.transform.translation.z = rightTrans[2];
-    Eigen::Vector3d rightRot;
-    rightRot << teleopRight.transform.rotation.x,
-        teleopRight.transform.rotation.y, teleopRight.transform.rotation.z;
-    rightRot = dvrkCoordToNormalCoord_ * rightRot;
-    teleopRight.transform.rotation.x = rightRot[0];
-    teleopRight.transform.rotation.y = rightRot[1];
-    teleopRight.transform.rotation.z = rightRot[2];
-    rightPoseDesPub_.publish(teleopRight);
+  if ((ros::Time::now() - dvrkPoseRight_.header.stamp).toSec() < poseExpiration_) {
+    processDVRKPose(dvrkPoseRight_, rightPoseDesPub_);
   }
 
   std_msgs::Bool teleopClutch;
@@ -127,59 +90,11 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   rightTeleopClutchPub_.publish(teleopClutch);
 
   if ((ros::Time::now() - lastLeftWrenchTime_).toSec() < wrenchExpiration_) {
-    geometry_msgs::WrenchStamped dvrkWrench = teleopLeftWrench_;
-    dvrkWrench.header.stamp = ros::Time::now();
-    Eigen::Vector3d force;
-    force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
-        dvrkWrench.wrench.force.z;
-    Eigen::Quaterniond quatLeft;
-    quatLeft.w() = dvrkPoseLeft_.transform.rotation.w;
-    quatLeft.x() = dvrkPoseLeft_.transform.rotation.x;
-    quatLeft.y() = dvrkPoseLeft_.transform.rotation.y;
-    quatLeft.z() = dvrkPoseLeft_.transform.rotation.z;
-    Eigen::Matrix3d frameCorrection = quatLeft.inverse().toRotationMatrix();
-
-    force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
-
-    if (force.norm() > maxForce_) {
-      force = maxForce_ * force / force.norm();
-    }
-
-    dvrkWrench.wrench.force.x = force[0];
-    dvrkWrench.wrench.force.y = force[1];
-    dvrkWrench.wrench.force.z = force[2];
-    dvrkWrench.wrench.torque.x = 0.0;
-    dvrkWrench.wrench.torque.y = 0.0;
-    dvrkWrench.wrench.torque.z = 0.0;
-    dvrkLeftWrenchPub_.publish(dvrkWrench);
+    processTeleopWrench(teleopLeftWrench_, dvrkPoseLeft_, dvrkLeftWrenchPub_);
   }
 
   if ((ros::Time::now() - lastRightWrenchTime_).toSec() < wrenchExpiration_) {
-    geometry_msgs::WrenchStamped dvrkWrench = teleopRightWrench_;
-    dvrkWrench.header.stamp = ros::Time::now();
-    Eigen::Vector3d force;
-    force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
-        dvrkWrench.wrench.force.z;
-    Eigen::Quaterniond quatRight;
-    quatRight.w() = dvrkPoseRight_.transform.rotation.w;
-    quatRight.x() = dvrkPoseRight_.transform.rotation.x;
-    quatRight.y() = dvrkPoseRight_.transform.rotation.y;
-    quatRight.z() = dvrkPoseRight_.transform.rotation.z;
-    Eigen::Matrix3d frameCorrection = quatRight.inverse().toRotationMatrix();
-
-    force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
-
-    if (force.norm() > maxForce_) {
-      force = maxForce_ * force / force.norm();
-    }
-
-    dvrkWrench.wrench.force.x = force[0];
-    dvrkWrench.wrench.force.y = force[1];
-    dvrkWrench.wrench.force.z = force[2];
-    dvrkWrench.wrench.torque.x = 0.0;
-    dvrkWrench.wrench.torque.y = 0.0;
-    dvrkWrench.wrench.torque.z = 0.0;
-    dvrkRightWrenchPub_.publish(dvrkWrench);
+    processTeleopWrench(teleopRightWrench_, dvrkPoseRight_, dvrkRightWrenchPub_);
   }
 
   if (dvrkGripperLeft_.position.size() >= 1){
@@ -191,6 +106,59 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   }
 
   return true;
+}
+
+void DVRKTeleopInterface::processDVRKPose(const geometry_msgs::TransformStamped &dvrk_pose,
+                                   ros::Publisher &pub) {
+  geometry_msgs::TransformStamped teleopPose = dvrk_pose;
+  teleopPose.header.frame_id = baseFrameId_;
+  Eigen::Vector3d trans;
+  trans << teleopPose.transform.translation.x,
+      teleopPose.transform.translation.y,
+      teleopPose.transform.translation.z;
+  trans = dvrkCoordToNormalCoord_ * trans;
+  teleopPose.transform.translation.x = trans[0];
+  teleopPose.transform.translation.y = trans[1];
+  teleopPose.transform.translation.z = trans[2];
+  Eigen::Vector3d rot;
+  rot << teleopPose.transform.rotation.x,
+      teleopPose.transform.rotation.y, teleopPose.transform.rotation.z;
+  rot = dvrkCoordToNormalCoord_ * rot;
+  // yes its a quaternion but because its a coord system transform this works
+  teleopPose.transform.rotation.x = rot[0];
+  teleopPose.transform.rotation.y = rot[1];
+  teleopPose.transform.rotation.z = rot[2];
+  pub.publish(teleopPose);
+}
+
+void DVRKTeleopInterface::processTeleopWrench(const geometry_msgs::WrenchStamped &wrench,
+                                        const geometry_msgs::TransformStamped &dvrk_pose,
+                                        ros::Publisher &pub) {
+  geometry_msgs::WrenchStamped dvrkWrench = wrench;
+  dvrkWrench.header.stamp = ros::Time::now();
+  Eigen::Vector3d force;
+  force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
+      dvrkWrench.wrench.force.z;
+  Eigen::Quaterniond quat;
+  quat.w() = dvrk_pose.transform.rotation.w;
+  quat.x() = dvrk_pose.transform.rotation.x;
+  quat.y() = dvrk_pose.transform.rotation.y;
+  quat.z() = dvrk_pose.transform.rotation.z;
+  Eigen::Matrix3d frameCorrection = quat.inverse().toRotationMatrix();
+
+  force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
+
+  if (force.norm() > maxForce_) {
+    force = maxForce_ * force / force.norm();
+  }
+
+  dvrkWrench.wrench.force.x = force[0];
+  dvrkWrench.wrench.force.y = force[1];
+  dvrkWrench.wrench.force.z = force[2];
+  dvrkWrench.wrench.torque.x = 0.0;
+  dvrkWrench.wrench.torque.y = 0.0;
+  dvrkWrench.wrench.torque.z = 0.0;
+  pub.publish(dvrkWrench);
 }
 
 void DVRKTeleopInterface::dvrkPoseLeftCallback(
