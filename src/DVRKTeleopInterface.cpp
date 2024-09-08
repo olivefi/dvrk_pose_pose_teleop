@@ -39,6 +39,8 @@ bool DVRKTeleopInterface::init() {
       teleopLeftWrenchTopic_, 1, &DVRKTeleopInterface::teleopLeftWrenchCallback, this);
   teleopRightWrenchSub_ = nh_->subscribe(
       teleopRightWrenchTopic_, 1, &DVRKTeleopInterface::teleopRightWrenchCallback, this);
+  dvrkControlStateSub_ = nh_->subscribe(
+      "/mobile_manipulator_state_machine/control_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
 
   // Initialize publishers
   dvrkLeftWrenchPub_ =
@@ -53,7 +55,7 @@ bool DVRKTeleopInterface::init() {
       "/teleop/right/leader_pose", 1);
   leftGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopLeftGripperTopic_, 1);
   rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
-  
+  twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist_des", 1);
 
   // Initialize coord transform
   dvrkCoordToNormalCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
@@ -77,11 +79,17 @@ void DVRKTeleopInterface::cleanup() {}
 
 bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   if ((ros::Time::now() - dvrkPoseLeft_.header.stamp).toSec() < poseExpiration_) {
-    processDVRKPose(dvrkPoseLeft_, leftPoseDesPub_);
+    if (controlState_ == ControlStates::Arms) {
+      processDVRKPoseForArms(dvrkPoseLeft_, leftPoseDesPub_);
+    } else if (controlState_ == ControlStates::Legs) {
+      processDVRKPoseForLegs(dvrkPoseLeft_, twistDesPub_);
+    }
   }
 
   if ((ros::Time::now() - dvrkPoseRight_.header.stamp).toSec() < poseExpiration_) {
-    processDVRKPose(dvrkPoseRight_, rightPoseDesPub_);
+    if (controlState_ == ControlStates::Arms) {
+      processDVRKPoseForArms(dvrkPoseRight_, rightPoseDesPub_);
+    }
   }
 
   std_msgs::Bool teleopClutch;
@@ -108,7 +116,7 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   return true;
 }
 
-void DVRKTeleopInterface::processDVRKPose(const geometry_msgs::TransformStamped &dvrk_pose,
+void DVRKTeleopInterface::processDVRKPoseForArms(const geometry_msgs::TransformStamped &dvrk_pose,
                                    ros::Publisher &pub) {
   geometry_msgs::TransformStamped teleopPose = dvrk_pose;
   teleopPose.header.frame_id = baseFrameId_;
@@ -139,11 +147,7 @@ void DVRKTeleopInterface::processTeleopWrench(const geometry_msgs::WrenchStamped
   Eigen::Vector3d force;
   force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
       dvrkWrench.wrench.force.z;
-  Eigen::Quaterniond quat;
-  quat.w() = dvrk_pose.transform.rotation.w;
-  quat.x() = dvrk_pose.transform.rotation.x;
-  quat.y() = dvrk_pose.transform.rotation.y;
-  quat.z() = dvrk_pose.transform.rotation.z;
+  Eigen::Quaterniond quat = rosQuatToEigen(dvrk_pose.transform.rotation);
   Eigen::Matrix3d frameCorrection = quat.inverse().toRotationMatrix();
 
   force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
@@ -159,6 +163,33 @@ void DVRKTeleopInterface::processTeleopWrench(const geometry_msgs::WrenchStamped
   dvrkWrench.wrench.torque.y = 0.0;
   dvrkWrench.wrench.torque.z = 0.0;
   pub.publish(dvrkWrench);
+}
+
+void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformStamped &dvrk_pose,
+                            ros::Publisher &pub) {
+  if (!(dvrkClutch_.data)) {
+    twistDesInitialized_ = false;
+  }
+  if (!twistDesInitialized_ && dvrkClutch_.data) {
+    twistDesInitPose_ = dvrk_pose;
+    twistDesInitialized_ = true;
+  }
+
+  if (twistDesInitialized_){
+    geometry_msgs::TransformStamped teleopPose = dvrk_pose;
+    Eigen::Quaterniond quatInit = rosQuatToEigen(twistDesInitPose_.transform.rotation);
+    Eigen::Quaterniond quat = rosQuatToEigen(dvrk_pose.transform.rotation);
+    Eigen::Quaterniond quatDiff = quatInit.inverse() * quat;
+    Eigen::Vector3d euler = quatDiff.toRotationMatrix().eulerAngles(0, 1, 2);
+    geometry_msgs::TwistStamped twistDes;
+    twistDes.twist.linear.x = euler[1];
+    twistDes.twist.linear.y = euler[0];
+    twistDes.twist.linear.z = 0.0;
+    twistDes.twist.angular.x = 0.0;
+    twistDes.twist.angular.y = 0.0;
+    twistDes.twist.angular.z = euler[2];
+    pub.publish(twistDes);
+  }
 }
 
 void DVRKTeleopInterface::dvrkPoseLeftCallback(
@@ -196,6 +227,15 @@ void DVRKTeleopInterface::dvrkGripperRightCallback(const sensor_msgs::JointState
   dvrkGripperRight_ = *msg;
 }
 
+void DVRKTeleopInterface::dvrkControlStateCallback(const std_msgs::Empty::ConstPtr &msg) {
+  controlState_ = controlState_ == ControlStates::Arms ? ControlStates::Legs : ControlStates::Arms;
+  if (controlState_ == ControlStates::Arms) {
+    ROS_INFO_STREAM("Control state changed to Arms");
+  } else if (controlState_ == ControlStates::Legs) {
+    ROS_INFO_STREAM("Control state changed to Legs");
+  }
+}
+
 sensor_msgs::JointState DVRKTeleopInterface::processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits){
   sensor_msgs::JointState newGripperState = gripperState;
   newGripperState.position[0] = (newGripperState.position[0] - gripperLimits[0])/(gripperLimits[1] - gripperLimits[0]);
@@ -203,4 +243,12 @@ sensor_msgs::JointState DVRKTeleopInterface::processGripperLimits(const sensor_m
   return newGripperState;
 }
 
+Eigen::Quaterniond DVRKTeleopInterface::rosQuatToEigen(const geometry_msgs::Quaternion &rosQuat) {
+  Eigen::Quaterniond eigenQuat;
+  eigenQuat.w() = rosQuat.w;
+  eigenQuat.x() = rosQuat.x;
+  eigenQuat.y() = rosQuat.y;
+  eigenQuat.z() = rosQuat.z;
+  return eigenQuat;
+}
 } /* namespace dvrk_teleop_interface */
