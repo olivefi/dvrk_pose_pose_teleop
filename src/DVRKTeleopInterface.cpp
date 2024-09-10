@@ -41,9 +41,9 @@ bool DVRKTeleopInterface::init() {
   teleopRightWrenchSub_ = nh_->subscribe(
       teleopRightWrenchTopic_, 1, &DVRKTeleopInterface::teleopRightWrenchCallback, this);
   dvrkArmsStateSub_ = nh_->subscribe(
-      "/mobile_manipulator_state_machine/manipulator_control", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+      "/mobile_manipulator_state_machine/manipulator_control", 1, &DVRKTeleopInterface::dvrkArmsStateCallback, this);
   dvrkMobileBaseStateSub_ = nh_->subscribe
-      ("/mobile_manipulator_state_machine/mobile_base_control", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+      ("/mobile_manipulator_state_machine/mobile_base_control", 1, &DVRKTeleopInterface::dvrkMobileBaseStateCallback, this);
   dvrkControlStateSub_ = nh_->subscribe(
       "/mobile_manipulator_state_machine/switch_control_mode", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
 
@@ -62,6 +62,12 @@ bool DVRKTeleopInterface::init() {
   rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
   twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist_des", 1);
   dvrkControlStatePub_ = nh_->advertise<std_msgs::String>("/dvrk_control/control_state", 1);
+
+  // start in arms mode
+  controlState_ = ControlStates::Arms;
+  std_msgs::String state;
+  state.data = "wrench";
+  dvrkControlStatePub_.publish(state);
 
 
   // Initialize coord transform
@@ -236,7 +242,7 @@ void DVRKTeleopInterface::dvrkGripperRightCallback(const sensor_msgs::JointState
 void DVRKTeleopInterface::dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr &msg) {
   controlState_ = ControlStates::Arms;
   std_msgs::String state;
-  state.data = "pose";
+  state.data = "wrench";
   dvrkControlStatePub_.publish(state);
   ROS_INFO_STREAM("Control state changed to Arms");
 }
@@ -244,8 +250,7 @@ void DVRKTeleopInterface::dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr 
 void DVRKTeleopInterface::dvrkMobileBaseStateCallback(const std_msgs::Empty::ConstPtr &msg) {
   controlState_ = ControlStates::Legs;
   std_msgs::String state;
-  state.data = "wrench";
-  dvrkControlStatePub_.publish(state);
+  state.data = "pose";
   dvrkControlStatePub_.publish(state);
   ROS_INFO_STREAM("Control state changed to Legs");
 }
