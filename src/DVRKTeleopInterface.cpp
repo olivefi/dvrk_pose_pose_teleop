@@ -60,7 +60,7 @@ bool DVRKTeleopInterface::init() {
       "/teleop/right/leader_pose", 1);
   leftGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopLeftGripperTopic_, 1);
   rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
-  twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist_des", 1);
+  twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist", 1);
   dvrkControlModePub_ = nh_->advertise<std_msgs::String>("/dvrk_control/control_mode", 1);
 
   // start in arms mode
