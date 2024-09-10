@@ -101,6 +101,8 @@ protected:
   ros::Time lastLeftWrenchTime_;
   ros::Time lastRightWrenchTime_;
 
+  ros::Time otherDeviceTime_;
+
   // Stuff we (re-)publish
   ros::Publisher dvrkLeftWrenchPub_;
   ros::Publisher dvrkRightWrenchPub_;

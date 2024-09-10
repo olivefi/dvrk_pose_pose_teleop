@@ -91,13 +91,15 @@ bool DVRKTeleopInterface::init() {
 void DVRKTeleopInterface::cleanup() {}
 
 bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
+  geometry_msgs::TwistStamped twist;
   switch (controlState_) {
     case ControlStates::Arms:
       processDVRKPoseForArms(dvrkPoseLeft_, leftPoseDesPub_);
       processDVRKPoseForArms(dvrkPoseRight_, rightPoseDesPub_);
       processTeleopWrench(teleopLeftWrench_, dvrkPoseLeft_, dvrkLeftWrenchPub_);
       processTeleopWrench(teleopRightWrench_, dvrkPoseRight_, dvrkRightWrenchPub_);
-      twistDesPub_.publish(geometry_msgs::TwistStamped());
+      twist.header.stamp = otherDeviceTime_;
+      twistDesPub_.publish(twist);
       break;
     case ControlStates::Legs:
       processDVRKPoseForLegs(dvrkPoseRight_, twistDesPub_);
@@ -196,6 +198,7 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
     double angle = atan2(rotDiff(1, 0), rotDiff(0, 0));
 
     geometry_msgs::TwistStamped twistDes;
+    twistDes.header.stamp = otherDeviceTime_;
     twistDes.twist.linear.x = xy_twist_scale_ * posErr[0];
     twistDes.twist.linear.y = xy_twist_scale_ * posErr[1];
     twistDes.twist.linear.z = 0.0;
@@ -205,6 +208,7 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
     pub.publish(twistDes);
   } else {
     geometry_msgs::TwistStamped twistDes;
+    twistDes.header.stamp = otherDeviceTime_;
     pub.publish(twistDes);
   }
 }
@@ -228,12 +232,14 @@ void DVRKTeleopInterface::teleopLeftWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
   teleopLeftWrench_ = *msg;
   lastLeftWrenchTime_ = ros::Time::now();
+  otherDeviceTime_ = msg->header.stamp;
 }
 
 void DVRKTeleopInterface::teleopRightWrenchCallback(
     const geometry_msgs::WrenchStamped::ConstPtr &msg) {
   teleopRightWrench_ = *msg;
   lastRightWrenchTime_ = ros::Time::now();
+  otherDeviceTime_ = msg->header.stamp;
 }
 
 void DVRKTeleopInterface::dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg) {
