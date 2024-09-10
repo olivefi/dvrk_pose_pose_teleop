@@ -193,13 +193,19 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
     Eigen::Quaterniond quat = rosQuatToEigen(dvrk_pose.transform.rotation);
     Eigen::Quaterniond quatDiff = quatInit.inverse() * quat;
     Eigen::Vector3d euler = quatDiff.toRotationMatrix().eulerAngles(0, 1, 2);
+    double rotationCmd = euler[2];
+    if (rotationCmd > M_PI) {
+      rotationCmd -= M_PI;
+    } else if (rotationCmd < -M_PI) {
+      rotationCmd += M_PI;
+    }
     geometry_msgs::TwistStamped twistDes;
     twistDes.twist.linear.x = xy_twist_scale_ * posErr[0];
     twistDes.twist.linear.y = xy_twist_scale_ * posErr[1];
     twistDes.twist.linear.z = 0.0;
     twistDes.twist.angular.x = 0.0;
     twistDes.twist.angular.y = 0.0;
-    twistDes.twist.angular.z = euler[2];
+    twistDes.twist.angular.z = rotationCmd * angular_twist_scale_;
     pub.publish(twistDes);
   } else {
     geometry_msgs::TwistStamped twistDes;
