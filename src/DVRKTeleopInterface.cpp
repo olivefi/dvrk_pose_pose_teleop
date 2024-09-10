@@ -23,7 +23,8 @@ bool DVRKTeleopInterface::init() {
   rightGripperLimits_ = param<std::vector<double>>("right_gripper_limits", {0., 1.0});
   forceScaling_ = param<double>("force_scaling", 0.2);
   maxForce_ = param<double>("max_force", 20.0);
-
+  xy_twist_scale_ = param<double>("xy_twist_scale", 25.0);
+  angular_twist_scale_ = param<double>("angular_twist_scale", 25.0);
   // Initialize subscribers
   dvrkPoseLeftSub_ = nh_->subscribe(
       "/MTML/measured_cp", 1, &DVRKTeleopInterface::dvrkPoseLeftCallback, this);
@@ -39,14 +40,18 @@ bool DVRKTeleopInterface::init() {
       teleopLeftWrenchTopic_, 1, &DVRKTeleopInterface::teleopLeftWrenchCallback, this);
   teleopRightWrenchSub_ = nh_->subscribe(
       teleopRightWrenchTopic_, 1, &DVRKTeleopInterface::teleopRightWrenchCallback, this);
+  dvrkArmsStateSub_ = nh_->subscribe(
+      "/mobile_manipulator_state_machine/arms_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+  dvrkMobileBaseStateSub_ = nh_->subscribe
+      ("/mobile_manipulator_state_machine/mobile_base_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
   dvrkControlStateSub_ = nh_->subscribe(
       "/mobile_manipulator_state_machine/control_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
 
   // Initialize publishers
   dvrkLeftWrenchPub_ =
-      nh_->advertise<geometry_msgs::WrenchStamped>("/MTML/body/servo_cf", 1);
+      nh_->advertise<geometry_msgs::WrenchStamped>("/dvrk_control/left/wrench", 1);
   dvrkRightWrenchPub_ =
-      nh_->advertise<geometry_msgs::WrenchStamped>("/MTMR/body/servo_cf", 1);
+      nh_->advertise<geometry_msgs::WrenchStamped>("/dvrk_control/right/wrench", 1);
   leftTeleopClutchPub_ = nh_->advertise<std_msgs::Bool>("/teleop/left/leader_clutch", 1);
   rightTeleopClutchPub_ = nh_->advertise<std_msgs::Bool>("/teleop/right/leader_clutch", 1);
   leftPoseDesPub_ = nh_->advertise<geometry_msgs::TransformStamped>(
@@ -56,10 +61,12 @@ bool DVRKTeleopInterface::init() {
   leftGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopLeftGripperTopic_, 1);
   rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
   twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist_des", 1);
+  dvrkControlStatePub_ = nh_->advertise<std_msgs::String>("/dvrk_control/control_state", 1);
+
 
   // Initialize coord transform
   dvrkCoordToNormalCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
-  normalCoordToDvrkCoord_ << 0, 1, 0, -1, 0, 0, 0, 0, 1;
+  normalCoordToDvrkCoord_ << 0, -1, 0, 1, 0, 0, 0, 0, 1;
 
   any_worker::WorkerOptions workerOptions;
   workerOptions.name_ = ros::this_node::getName() + std::string{"_broadcast"};
@@ -78,18 +85,17 @@ bool DVRKTeleopInterface::init() {
 void DVRKTeleopInterface::cleanup() {}
 
 bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
-  if ((ros::Time::now() - dvrkPoseLeft_.header.stamp).toSec() < poseExpiration_) {
-    if (controlState_ == ControlStates::Arms) {
+  switch (controlState_) {
+    case ControlStates::Arms:
       processDVRKPoseForArms(dvrkPoseLeft_, leftPoseDesPub_);
-    } else if (controlState_ == ControlStates::Legs) {
-      processDVRKPoseForLegs(dvrkPoseLeft_, twistDesPub_);
-    }
-  }
-
-  if ((ros::Time::now() - dvrkPoseRight_.header.stamp).toSec() < poseExpiration_) {
-    if (controlState_ == ControlStates::Arms) {
       processDVRKPoseForArms(dvrkPoseRight_, rightPoseDesPub_);
-    }
+      processTeleopWrench(teleopLeftWrench_, dvrkPoseLeft_, dvrkLeftWrenchPub_);
+      processTeleopWrench(teleopRightWrench_, dvrkPoseRight_, dvrkRightWrenchPub_);
+      twistDesPub_.publish(geometry_msgs::TwistStamped());
+      break;
+    case ControlStates::Legs:
+      processDVRKPoseForLegs(dvrkPoseRight_, twistDesPub_);
+      break;
   }
 
   std_msgs::Bool teleopClutch;
@@ -97,13 +103,6 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   leftTeleopClutchPub_.publish(teleopClutch);
   rightTeleopClutchPub_.publish(teleopClutch);
 
-  if ((ros::Time::now() - lastLeftWrenchTime_).toSec() < wrenchExpiration_) {
-    processTeleopWrench(teleopLeftWrench_, dvrkPoseLeft_, dvrkLeftWrenchPub_);
-  }
-
-  if ((ros::Time::now() - lastRightWrenchTime_).toSec() < wrenchExpiration_) {
-    processTeleopWrench(teleopRightWrench_, dvrkPoseRight_, dvrkRightWrenchPub_);
-  }
 
   if (dvrkGripperLeft_.position.size() >= 1){
     leftGripperPub_.publish(processGripperLimits(dvrkGripperLeft_, leftGripperLimits_));
@@ -189,6 +188,15 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
     twistDes.twist.angular.y = 0.0;
     twistDes.twist.angular.z = euler[2];
     pub.publish(twistDes);
+  } else {
+    geometry_msgs::TwistStamped twistDes;
+    twistDes.twist.linear.x = 0.0;
+    twistDes.twist.linear.y = 0.0;
+    twistDes.twist.linear.z = 0.0;
+    twistDes.twist.angular.x = 0.0;
+    twistDes.twist.angular.y = 0.0;
+    twistDes.twist.angular.z = 0.0;
+    pub.publish(twistDes);
   }
 }
 
@@ -227,13 +235,26 @@ void DVRKTeleopInterface::dvrkGripperRightCallback(const sensor_msgs::JointState
   dvrkGripperRight_ = *msg;
 }
 
+void DVRKTeleopInterface::dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr &msg) {
+  controlState_ = ControlStates::Arms;
+  std_msgs::String state;
+  state.data = "pose";
+  dvrkControlStatePub_.publish(state);
+  ROS_INFO_STREAM("Control state changed to Arms");
+}
+
+void DVRKTeleopInterface::dvrkMobileBaseStateCallback(const std_msgs::Empty::ConstPtr &msg) {
+  controlState_ = ControlStates::Legs;
+  std_msgs::String state;
+  state.data = "wrench";
+  dvrkControlStatePub_.publish(state);
+  dvrkControlStatePub_.publish(state);
+  ROS_INFO_STREAM("Control state changed to Legs");
+}
+
 void DVRKTeleopInterface::dvrkControlStateCallback(const std_msgs::Empty::ConstPtr &msg) {
-  controlState_ = controlState_ == ControlStates::Arms ? ControlStates::Legs : ControlStates::Arms;
-  if (controlState_ == ControlStates::Arms) {
-    ROS_INFO_STREAM("Control state changed to Arms");
-  } else if (controlState_ == ControlStates::Legs) {
-    ROS_INFO_STREAM("Control state changed to Legs");
-  }
+  ROS_INFO_STREAM("Switching control state.");
+  ROS_INFO_STREAM("No options exist yet for this.");
 }
 
 sensor_msgs::JointState DVRKTeleopInterface::processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits){
