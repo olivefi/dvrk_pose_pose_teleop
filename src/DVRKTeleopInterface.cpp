@@ -41,11 +41,11 @@ bool DVRKTeleopInterface::init() {
   teleopRightWrenchSub_ = nh_->subscribe(
       teleopRightWrenchTopic_, 1, &DVRKTeleopInterface::teleopRightWrenchCallback, this);
   dvrkArmsStateSub_ = nh_->subscribe(
-      "/mobile_manipulator_state_machine/arms_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+      "/mobile_manipulator_state_machine/manipulator_control", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
   dvrkMobileBaseStateSub_ = nh_->subscribe
-      ("/mobile_manipulator_state_machine/mobile_base_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+      ("/mobile_manipulator_state_machine/mobile_base_control", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
   dvrkControlStateSub_ = nh_->subscribe(
-      "/mobile_manipulator_state_machine/control_state", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
+      "/mobile_manipulator_state_machine/switch_control_mode", 1, &DVRKTeleopInterface::dvrkControlStateCallback, this);
 
   // Initialize publishers
   dvrkLeftWrenchPub_ =
@@ -99,7 +99,7 @@ bool DVRKTeleopInterface::update(const any_worker::WorkerEvent &event) {
   }
 
   std_msgs::Bool teleopClutch;
-  teleopClutch.data= dvrkClutch_.data;
+  teleopClutch.data = dvrkClutch_.data;
   leftTeleopClutchPub_.publish(teleopClutch);
   rightTeleopClutchPub_.publish(teleopClutch);
 
@@ -146,10 +146,8 @@ void DVRKTeleopInterface::processTeleopWrench(const geometry_msgs::WrenchStamped
   Eigen::Vector3d force;
   force << dvrkWrench.wrench.force.x, dvrkWrench.wrench.force.y,
       dvrkWrench.wrench.force.z;
-  Eigen::Quaterniond quat = rosQuatToEigen(dvrk_pose.transform.rotation);
-  Eigen::Matrix3d frameCorrection = quat.inverse().toRotationMatrix();
 
-  force = forceScaling_ * frameCorrection * normalCoordToDvrkCoord_ * force;
+  force = forceScaling_ * force;
 
   if (force.norm() > maxForce_) {
     force = maxForce_ * force / force.norm();
