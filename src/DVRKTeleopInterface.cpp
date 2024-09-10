@@ -201,16 +201,10 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
     twistDes.twist.linear.z = 0.0;
     twistDes.twist.angular.x = 0.0;
     twistDes.twist.angular.y = 0.0;
-    twistDes.twist.angular.z = angle * angular_twist_scale_;
+    twistDes.twist.angular.z = -angle * angular_twist_scale_;
     pub.publish(twistDes);
   } else {
     geometry_msgs::TwistStamped twistDes;
-    twistDes.twist.linear.x = 0.0;
-    twistDes.twist.linear.y = 0.0;
-    twistDes.twist.linear.z = 0.0;
-    twistDes.twist.angular.x = 0.0;
-    twistDes.twist.angular.y = 0.0;
-    twistDes.twist.angular.z = 0.0;
     pub.publish(twistDes);
   }
 }
