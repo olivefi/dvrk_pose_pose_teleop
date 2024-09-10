@@ -77,7 +77,7 @@ protected:
   void dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg);
   void dvrkGripperRightCallback(const sensor_msgs::JointState::ConstPtr &msg);
 
-  void dvrkMobileBaseStateCallback(const std_msgs::Empty::ConstPtr &msg);
+  void dvrkMobileBaseStateCallback(const std_msgs::Bool::ConstPtr &msg);
   void dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr &msg);
   void dvrkControlStateCallback(const std_msgs::Empty::ConstPtr &msg);
 
@@ -111,7 +111,7 @@ protected:
   ros::Publisher leftGripperPub_;
   ros::Publisher rightGripperPub_;
   ros::Publisher twistDesPub_;
-  ros::Publisher dvrkControlStatePub_;
+  ros::Publisher dvrkControlModePub_;
 
   Eigen::Quaterniond rosQuatToEigen(const geometry_msgs::Quaternion &rosQuat);
 };

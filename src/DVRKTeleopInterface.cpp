@@ -61,13 +61,13 @@ bool DVRKTeleopInterface::init() {
   leftGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopLeftGripperTopic_, 1);
   rightGripperPub_ = nh_->advertise<sensor_msgs::JointState>(teleopRightGripperTopic_, 1);
   twistDesPub_ = nh_->advertise<geometry_msgs::TwistStamped>("/teleop/base/twist_des", 1);
-  dvrkControlStatePub_ = nh_->advertise<std_msgs::String>("/dvrk_control/control_state", 1);
+  dvrkControlModePub_ = nh_->advertise<std_msgs::String>("/dvrk_control/control_mode", 1);
 
   // start in arms mode
   controlState_ = ControlStates::Arms;
   std_msgs::String state;
   state.data = "wrench";
-  dvrkControlStatePub_.publish(state);
+  dvrkControlModePub_.publish(state);
 
 
   // Initialize coord transform
@@ -243,15 +243,15 @@ void DVRKTeleopInterface::dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr 
   controlState_ = ControlStates::Arms;
   std_msgs::String state;
   state.data = "wrench";
-  dvrkControlStatePub_.publish(state);
+  dvrkControlModePub_.publish(state);
   ROS_INFO_STREAM("Control state changed to Arms");
 }
 
-void DVRKTeleopInterface::dvrkMobileBaseStateCallback(const std_msgs::Empty::ConstPtr &msg) {
+void DVRKTeleopInterface::dvrkMobileBaseStateCallback(const std_msgs::Bool::ConstPtr &msg) {
   controlState_ = ControlStates::Legs;
   std_msgs::String state;
   state.data = "pose";
-  dvrkControlStatePub_.publish(state);
+  dvrkControlModePub_.publish(state);
   ROS_INFO_STREAM("Control state changed to Legs");
 }
 
