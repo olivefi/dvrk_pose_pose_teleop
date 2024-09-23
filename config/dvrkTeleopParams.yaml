@@ -16,7 +16,8 @@ scaling: 0.1
 max_force: 10.0 # N
 
 # Leg control
-xy_twist_scale: 10.0 # cm/s per cm moved
+x_twist_scale: 10.0 # cm/s per cm moved
+y_twist_scale: 10.0 # cm/s per cm moved
 angular_twist_scale: 0.25 # rad/s per rad turned
 
 # Timeouts

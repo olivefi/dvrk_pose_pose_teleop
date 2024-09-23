@@ -58,7 +58,8 @@ protected:
   double maxForce_;
   std::vector<double> leftGripperLimits_;
   std::vector<double> rightGripperLimits_;
-  double xy_twist_scale_;
+  double x_twist_scale_;
+  double y_twist_scale_;
   double angular_twist_scale_;
 
   // Stuff we receive from DVRK

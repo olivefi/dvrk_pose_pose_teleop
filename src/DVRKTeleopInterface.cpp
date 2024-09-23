@@ -23,7 +23,8 @@ bool DVRKTeleopInterface::init() {
   rightGripperLimits_ = param<std::vector<double>>("right_gripper_limits", {0., 1.0});
   forceScaling_ = param<double>("force_scaling", 0.2);
   maxForce_ = param<double>("max_force", 20.0);
-  xy_twist_scale_ = param<double>("xy_twist_scale", 25.0);
+  x_twist_scale_ = param<double>("x_twist_scale", 25.0);
+  y_twist_scale_ = param<double>("y_twist_scale", 25.0);
   angular_twist_scale_ = param<double>("angular_twist_scale", 25.0);
   // Initialize subscribers
   dvrkPoseLeftSub_ = nh_->subscribe(
@@ -199,8 +200,8 @@ void DVRKTeleopInterface::processDVRKPoseForLegs(const geometry_msgs::TransformS
 
     geometry_msgs::TwistStamped twistDes;
     twistDes.header.stamp = otherDeviceTime_;
-    twistDes.twist.linear.x = xy_twist_scale_ * posErr[0];
-    twistDes.twist.linear.y = xy_twist_scale_ * posErr[1];
+    twistDes.twist.linear.x = x_twist_scale_ * posErr[0];
+    twistDes.twist.linear.y = y_twist_scale_ * posErr[1];
     twistDes.twist.linear.z = 0.0;
     twistDes.twist.angular.x = 0.0;
     twistDes.twist.angular.y = 0.0;
