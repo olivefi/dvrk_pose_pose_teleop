@@ -8,14 +8,17 @@
 #include <any_node/any_node.hpp>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/WrenchStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
+#include <std_msgs/String.h>
 #include <tf2_ros/transform_broadcaster.h>
 
 namespace dvrk_teleop_interface {
 
-enum JoystickButtons { LeftClutch = 10, RightClutch = 11 };
+enum ControlStates { Arms = 0, Legs = 1};
 
 class DVRKTeleopInterface : public any_node::Node {
 public:
@@ -29,11 +32,18 @@ public:
 protected:
   void processTeleopWrench(const geometry_msgs::WrenchStamped &wrench, const geometry_msgs::TransformStamped &dvrk_pose,
                      ros::Publisher &pub);
-  void processDVRKPose(const geometry_msgs::TransformStamped &dvrk_pose, ros::Publisher &pub);
+  void processDVRKPoseForArms(const geometry_msgs::TransformStamped &dvrk_pose, ros::Publisher &pub);
+
+  void processDVRKPoseForLegs(const geometry_msgs::TransformStamped &dvrk_pose, ros::Publisher &pub);
+
+  ControlStates controlState_ = Arms;
 
   tf2_ros::TransformBroadcaster tfBroadcaster_;
   Eigen::Matrix3d dvrkCoordToNormalCoord_ = Eigen::Matrix3d::Identity();
   Eigen::Matrix3d normalCoordToDvrkCoord_ = Eigen::Matrix3d::Identity();
+
+  bool twistDesInitialized_ = false;
+  geometry_msgs::TransformStamped twistDesInitPose_;
 
   // Externally settable variables
   std::string baseFrameId_;
@@ -48,6 +58,9 @@ protected:
   double maxForce_;
   std::vector<double> leftGripperLimits_;
   std::vector<double> rightGripperLimits_;
+  double x_twist_scale_;
+  double y_twist_scale_;
+  double angular_twist_scale_;
 
   // Stuff we receive from DVRK
   ros::Subscriber dvrkPoseLeftSub_;
@@ -55,12 +68,19 @@ protected:
   ros::Subscriber dvrkClutchSub_;
   ros::Subscriber dvrkGripperLeftSub_;
   ros::Subscriber dvrkGripperRightSub_;
+  ros::Subscriber dvrkArmsStateSub_;
+  ros::Subscriber dvrkMobileBaseStateSub_;
+  ros::Subscriber dvrkControlStateSub_;
 
   void dvrkPoseLeftCallback(const geometry_msgs::TransformStamped::ConstPtr &msg);
   void dvrkPoseRightCallback(const geometry_msgs::TransformStamped::ConstPtr &msg);
   void dvrkClutchCallback(const std_msgs::Bool::ConstPtr &msg);
   void dvrkGripperLeftCallback(const sensor_msgs::JointState::ConstPtr &msg);
   void dvrkGripperRightCallback(const sensor_msgs::JointState::ConstPtr &msg);
+
+  void dvrkMobileBaseStateCallback(const std_msgs::Bool::ConstPtr &msg);
+  void dvrkArmsStateCallback(const std_msgs::Empty::ConstPtr &msg);
+  void dvrkControlStateCallback(const std_msgs::Empty::ConstPtr &msg);
 
   sensor_msgs::JointState processGripperLimits(const sensor_msgs::JointState& gripperState, std::vector<double> gripperLimits);
 
@@ -82,6 +102,8 @@ protected:
   ros::Time lastLeftWrenchTime_;
   ros::Time lastRightWrenchTime_;
 
+  ros::Time otherDeviceTime_;
+
   // Stuff we (re-)publish
   ros::Publisher dvrkLeftWrenchPub_;
   ros::Publisher dvrkRightWrenchPub_;
@@ -91,5 +113,9 @@ protected:
   ros::Publisher rightPoseDesPub_;
   ros::Publisher leftGripperPub_;
   ros::Publisher rightGripperPub_;
+  ros::Publisher twistDesPub_;
+  ros::Publisher dvrkControlModePub_;
+
+  Eigen::Quaterniond rosQuatToEigen(const geometry_msgs::Quaternion &rosQuat);
 };
 } /* namespace dvrk_teleop_interface */

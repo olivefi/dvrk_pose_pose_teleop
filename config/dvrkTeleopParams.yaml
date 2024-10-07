@@ -15,6 +15,11 @@ right_gripper_limits: [-3.1, 1.0]
 scaling: 0.1
 max_force: 10.0 # N
 
+# Leg control
+x_twist_scale: 10.0 # cm/s per cm moved
+y_twist_scale: 10.0 # cm/s per cm moved
+angular_twist_scale: 0.25 # rad/s per rad turned
+
 # Timeouts
 pose_expiration: 0.01 # s, if a dvrk pose is this stale we do not publish
 wrench_expiration: 0.1 # s, if a wrench is this stale we do not send
